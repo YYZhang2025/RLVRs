@@ -1,0 +1,27 @@
+[project]
+name = "rlvr-factory"
+version = "0.1.0"
+requires-python = "==3.10.*"
+dependencies = [
+    "datasets>=4.0.0",
+    "dotenv>=0.9.9",
+    "einops>=0.8.1",
+    "huggingface-hub>=0.34.2",
+    "numpy<3",
+    "torch<3",
+    "torchvision>=0.22.1",
+    "transformers>=4.54.0",
+    "wandb>=0.21.0",
+    "rich>=13.3.4",
+    "fire==0.7.1",
+]
+
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["rlvrs*"]
+
+
+[project.optional-dependencies]
+cpu = []
+gpu = ["vllm",]

@@ -1,6 +1,10 @@
+from dataclasses import asdict
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
+
+from rlvrs.schema import ScoredRolloutBatch
 
 from .base import BaseTrainer
 from .utils import get_response_logprobs, masked_mean
@@ -33,10 +37,11 @@ class GRPOTrainer(BaseTrainer):
         self.reward_scale = self.config.get("reward_scale", 1.0)
         self.normalize_advantages = self.config.get("normalize_advantages", True)
 
-    def build_train_batch(self, scored_batch):
-        train_batch = dict(scored_batch)
+    def build_train_batch(self, scored_batch: ScoredRolloutBatch):
+        # train_batch = dict(scored_batch)
 
-        rewards = train_batch["rewards"]
+        # rewards = train_batch["rewards"]
+        rewards = scored_batch.rewards
         if not torch.is_tensor(rewards):
             rewards = torch.tensor(rewards, dtype=torch.float32, device=self.device)
         else:
@@ -53,7 +58,11 @@ class GRPOTrainer(BaseTrainer):
             flat_rewards = rewards.reshape(-1)
             advantages = self._compute_group_advantages(group_rewards).reshape(-1)
         elif rewards.dim() == 1:
-            group_size = train_batch.get("group_size", self.config.get("group_size", None))
+            group_size = (
+                scored_batch.group_size
+                if hasattr(scored_batch, "group_size")
+                else self.config.get("group_size", None)
+            )
             if group_size is not None:
                 if rewards.numel() % group_size != 0:
                     raise ValueError(
@@ -73,6 +82,7 @@ class GRPOTrainer(BaseTrainer):
         else:
             raise ValueError("rewards must be 1D or 2D tensor")
 
+        train_batch = asdict(scored_batch)
         train_batch["rewards"] = flat_rewards
         train_batch["advantages"] = advantages.to(self.device)
 

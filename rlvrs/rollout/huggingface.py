@@ -74,6 +74,13 @@ class HuggingFaceRolloutEngine:
                 raise ValueError("Tokenizer must have either pad_token_id or eos_token_id.")
             self.tokenizer.pad_token = self.tokenizer.eos_token
 
+    @torch.no_grad()
+    def load_weights(self, other_model: PreTrainedModel) -> None:
+        """
+        Load weights from another model, e.g. for loading actor weights into rollout engine.
+        """
+        self.model.load_state_dict(other_model.state_dict())
+
     @torch.inference_mode()
     def rollout(self, batch: Dict[str, Any]) -> RolloutBatch:
         raw_prompts = self._get_prompts(batch)
@@ -137,7 +144,7 @@ class HuggingFaceRolloutEngine:
         responses = self._decode_responses_only(
             full_input_ids=input_ids,
             prompt_lengths=prompt_lengths,
-        )
+        )  # [B, T-1]
 
         extra: Dict[str, Any] = {
             "prompt_lengths": prompt_lengths,
@@ -145,6 +152,13 @@ class HuggingFaceRolloutEngine:
             "formatted_prompts": repeated_formatted_prompts,
             "used_chat_template": self._should_use_chat_template(),
         }
+        if "answers" in batch:
+            answers = batch["answers"]
+            if not isinstance(answers, list) or not all(isinstance(x, str) for x in answers):
+                raise TypeError("'answers' must be a List[str].")
+            if len(answers) != num_prompts:
+                raise ValueError(f"answers length mismatch: got {len(answers)}, expected {num_prompts}.")
+            extra["answers"] = answers
 
         return RolloutBatch(
             prompt_input_ids=prompt_input_ids,
@@ -285,6 +299,7 @@ class HuggingFaceRolloutEngine:
         start = prompt_lengths.unsqueeze(1)
         end = full_lengths.unsqueeze(1)
         response_mask = ((positions >= start) & (positions < end)).long()
+        response_mask = response_mask[:, 1:]  # align with old_logprobs which are shifted by 1
         return response_mask
 
     @torch.inference_mode()

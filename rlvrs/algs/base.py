@@ -69,6 +69,7 @@ class BaseTrainer(ABC):
         """
         self.train()
 
+        self.rollout_engine.load_weights(self.actor)
         rollout_batch = self.rollout(batch)
         scored_batch = self.score(rollout_batch)
         train_batch = self.build_train_batch(scored_batch)
@@ -175,28 +176,29 @@ class BaseTrainer(ABC):
             )
         return self.rollout_engine.rollout(batch)
 
-    def score(self, rollout_batch: TensorDict) -> TensorDict:
+    def score(self, rollout_batch: TensorDict):
         if self.verifier is None:
             raise NotImplementedError("Verifier is not defined. Please provide verifier or override score().")
 
         if hasattr(self.verifier, "score"):
-            scores = self.verifier.score(rollout_batch)
+            scored_batch = self.verifier.score(rollout_batch)
         elif callable(self.verifier):
-            scores = self.verifier(rollout_batch)
+            scored_batch = self.verifier(rollout_batch)
         else:
             raise TypeError("Verifier must implement `.score(...)` or be callable.")
 
-        merged = dict(rollout_batch)
+        return scored_batch
+        # merged = dict(rollout_batch)
 
-        if isinstance(scores, dict):
-            merged.update(scores)
-            return merged
+        # if isinstance(scores, dict):
+        #     merged.update(scores)
+        #     return merged
 
-        if torch.is_tensor(scores):
-            merged["rewards"] = scores
-            return merged
+        # if torch.is_tensor(scores):
+        #     merged["rewards"] = scores
+        #     return merged
 
-        raise TypeError("Verifier output must be either dict or torch.Tensor.")
+        # raise TypeError("Verifier output must be either dict or torch.Tensor.")
 
     @abstractmethod
     def build_train_batch(self, scored_batch: TensorDict) -> TensorDict:

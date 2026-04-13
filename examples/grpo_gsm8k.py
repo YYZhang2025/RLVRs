@@ -66,6 +66,43 @@ class TrainConfig:
     add_generation_prompt: bool = True
 
 
+eval_prompts = [
+    format_prompt(
+        "Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May?"
+    ),
+    format_prompt(
+        "Weng earns $12 an hour for babysitting. Yesterday, she just did 50 minutes of babysitting. How much did she earn?"
+    ),
+]
+
+
+@torch.no_grad()
+def sample_prompt(model, tokenizer, prompt: str, device, max_new_tokens: int = 256):
+    model.eval()
+
+    inputs = tokenizer(
+        prompt,
+        return_tensors="pt",
+        truncation=True,
+        max_length=512,
+    ).to(device)
+
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=max_new_tokens,
+        do_sample=True,
+        temperature=0.7,
+        top_p=0.95,
+        top_k=20,
+        pad_token_id=tokenizer.pad_token_id,
+        eos_token_id=tokenizer.eos_token_id,
+    )
+
+    text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    model.train()
+    return text
+
+
 class SimpleListDataLoader:
     def __init__(self, rows: List[Dict], batch_size: int) -> None:
         self.rows = rows
@@ -165,6 +202,19 @@ def main():
                 f"ratio_mean={metrics.get('ratio_mean', 0.0):.4f} "
                 f"optimizer_step={metrics.get('optimizer_step', False)}"
             )
+
+            for i, prompt in enumerate(eval_prompts):
+                sampled_text = sample_prompt(
+                    model=model,
+                    tokenizer=tokenizer,
+                    prompt=prompt,
+                    device=device,
+                    max_new_tokens=cfg.max_new_tokens,
+                )
+
+                print(f"\n=== Eval Sample {i} ===")
+                print(sampled_text)
+                print("=" * 80)
 
         step += 1
         if step >= cfg.num_steps:

@@ -40,7 +40,6 @@ class GRPOTrainer(BaseTrainer):
     def build_train_batch(self, scored_batch: ScoredRolloutBatch):
         # train_batch = dict(scored_batch)
 
-        # rewards = train_batch["rewards"]
         rewards = scored_batch.rewards
         if not torch.is_tensor(rewards):
             rewards = torch.tensor(rewards, dtype=torch.float32, device=self.device)

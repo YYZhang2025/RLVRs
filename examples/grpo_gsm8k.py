@@ -11,28 +11,11 @@ from rlvrs.algs.grpo import GRPOTrainer
 from rlvrs.rollout import RolloutBackend, build_rollout_engine
 from rlvrs.verifiers.gsm8k_verifier import GSM8KVerifier
 
-SYSTEM_PROMPT = (
-    "You are a careful math reasoning assistant.\n"
-    "For every problem, respond in exactly this format:\n"
-    "<think>\n"
-    "step-by-step reasoning\n"
-    "</think>\n"
-    "\\boxed{final_answer}\n"
-    "Do not omit the <think> tags.\n"
-    "Do not output anything after the boxed final answer."
-)
+SYSTEM_PROMPT = "Please reason step by step, and put your final answer within \\boxed{}"
 
 
 def format_prompt(question: str) -> str:
-    return (
-        f"{SYSTEM_PROMPT}\n\n"
-        f"Question: {question}\n\n"
-        "Return your answer using this exact structure:\n"
-        "<think>\n"
-        "...\n"
-        "</think>\n"
-        "\\boxed{...}"
-    )
+    return f"{SYSTEM_PROMPT}\n\nQuestion: {question}\n\n"
 
 
 @dataclass
@@ -129,6 +112,9 @@ def prepare_dataset(cfg: TrainConfig):
                 "answer": ex["answer"],
             }
         )
+
+    print(f"Loaded {len(rows)} examples from the dataset.")
+    print(f"Example prompt:\n{rows[0]}\n")
     return rows
 
 

@@ -69,11 +69,19 @@ class BaseTrainer(ABC):
         """
         self.train()
 
+        # Sync rollout engine weights with actor before rollouts
         self.rollout_engine.load_weights(self.actor)
+
+        # 1. Rollout, generating G responses for each prompts
         rollout_batch = self.rollout(batch)
+
+        # 2. Score the rollouts with the verifier to get rewards
         scored_batch = self.score(rollout_batch)
+
+        # 3. Build a training batch with advantages from the scored batch
         train_batch = self.build_train_batch(scored_batch)
 
+        # 4. Compute loss and metrics from the train batch
         loss, metrics = self._compute_loss_and_metrics(train_batch)
 
         # divide loss for gradient accumulation

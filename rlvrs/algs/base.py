@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
+
+from rlvrs.schema import RolloutBatch
+
+if TYPE_CHECKING:
+    from rlvrs.verifiers.base import BaseVerifier
 
 TensorDict = Dict[str, Any]
 
@@ -14,7 +19,7 @@ class BaseTrainer(ABC):
     def __init__(
         self,
         actor: nn.Module,
-        verifier: Any,
+        verifier: BaseVerifier,
         optimizer: optim.Optimizer,
         config: Optional[Dict[str, Any]] = None,
         rollout_engine: Optional[Any] = None,
@@ -177,39 +182,28 @@ class BaseTrainer(ABC):
             **opt_metrics,
         }
 
-    def rollout(self, batch: TensorDict) -> TensorDict:
+    def rollout(self, batch: TensorDict) -> RolloutBatch:
         if self.rollout_engine is None:
             raise NotImplementedError(
                 "Rollout engine is not defined. Please provide rollout_engine or override rollout()."
             )
         return self.rollout_engine.rollout(batch)
 
-    def score(self, rollout_batch: TensorDict):
+    def score(self, rollout_batch: RolloutBatch):
         if self.verifier is None:
             raise NotImplementedError("Verifier is not defined. Please provide verifier or override score().")
 
-        if hasattr(self.verifier, "score"):
-            scored_batch = self.verifier.score(rollout_batch)
+        if hasattr(self.verifier, "compute_rewards"):
+            scored_batch = self.verifier.compute_rewards(rollout_batch)
         elif callable(self.verifier):
             scored_batch = self.verifier(rollout_batch)
         else:
-            raise TypeError("Verifier must implement `.score(...)` or be callable.")
+            raise TypeError("Verifier must implement `.compute_rewards(...)` or be callable.")
 
         return scored_batch
-        # merged = dict(rollout_batch)
-
-        # if isinstance(scores, dict):
-        #     merged.update(scores)
-        #     return merged
-
-        # if torch.is_tensor(scores):
-        #     merged["rewards"] = scores
-        #     return merged
-
-        # raise TypeError("Verifier output must be either dict or torch.Tensor.")
 
     @abstractmethod
-    def build_train_batch(self, scored_batch: TensorDict) -> TensorDict:
+    def build_train_batch(self, scored_batch: RolloutBatch) -> TensorDict:
         raise NotImplementedError
 
     @abstractmethod
